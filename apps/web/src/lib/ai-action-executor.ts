@@ -22,9 +22,11 @@ export function previewAction(action: EditorAction): string {
 		case "ADD_IMAGE_OVERLAY":
 			return `Add image overlay at position (${action.params.x ?? 0}, ${action.params.y ?? 0})`;
 		case "TRIM_CLIP": {
+			const clipId = action.params.clipId as string | undefined;
 			const start = action.params.start as number | undefined;
 			const end = action.params.end as number | undefined;
-			return `Trim clip from ${start?.toFixed(2) ?? "?"}s to ${end?.toFixed(2) ?? "?"}s`;
+			const target = clipId ? ` "${clipId}"` : "";
+			return `Trim clip${target} from ${start?.toFixed(2) ?? "?"}s to ${end?.toFixed(2) ?? "?"}s`;
 		}
 		case "ADD_TRANSITION":
 			return `Add "${action.params.transitionType ?? "crossfade"}" transition`;
@@ -226,12 +228,83 @@ export function executeAction(action: EditorAction): void {
 			break;
 		}
 
+		case "TRIM_CLIP": {
+			const editor = getEditorCore();
+			const clipId =
+				typeof action.params.clipId === "string"
+					? action.params.clipId
+					: undefined;
+			const start = action.params.start;
+			const end = action.params.end;
+
+			if (
+				typeof start !== "number" ||
+				!Number.isFinite(start) ||
+				typeof end !== "number" ||
+				!Number.isFinite(end)
+			) {
+				throw new Error("TRIM_CLIP requires finite numeric start and end times");
+			}
+			if (start < 0 || end <= start) {
+				throw new Error("TRIM_CLIP requires 0 <= start < end");
+			}
+
+			const videoClips = editor.timeline
+				.getTracks()
+				.flatMap((track: any) =>
+					track.elements.filter((element: any) => element.type === "video"),
+				);
+
+			const matchingClips = clipId
+				? videoClips.filter((element: any) => element.id === clipId)
+				: videoClips.filter(
+						(element: any) =>
+							start >= element.startTime &&
+							end <= element.startTime + element.duration,
+					);
+
+			if (matchingClips.length === 0) {
+				throw new Error(
+					clipId
+						? `TRIM_CLIP could not find video clip "${clipId}"`
+						: `TRIM_CLIP could not find a video clip containing ${start}s-${end}s`,
+				);
+			}
+			if (!clipId && matchingClips.length > 1) {
+				throw new Error(
+					"TRIM_CLIP is ambiguous; provide clipId when multiple video clips contain the requested range",
+				);
+			}
+
+			const element = matchingClips[0] as any;
+			const currentStart = element.startTime as number;
+			const currentEnd = currentStart + (element.duration as number);
+
+			if (start < currentStart || end > currentEnd) {
+				throw new Error(
+					`TRIM_CLIP range ${start}s-${end}s must stay within clip "${element.id}" (${currentStart}s-${currentEnd}s)`,
+				);
+			}
+
+			if (start === currentStart && end === currentEnd) {
+				break;
+			}
+
+			editor.timeline.updateElementTrim({
+				elementId: element.id,
+				trimStart: element.trimStart + (start - currentStart),
+				trimEnd: element.trimEnd + (currentEnd - end),
+				startTime: start,
+				duration: end - start,
+			});
+			break;
+		}
+
 		case "NORMALIZE_AUDIO":
 		case "AUTO_DUCK":
 		case "COLOR_CORRECT":
 		case "ADD_SUBTITLE_TRACK":
 		case "ADD_IMAGE_OVERLAY":
-		case "TRIM_CLIP":
 		case "ADD_TRANSITION":
 		case "ADD_VOICEOVER":
 		case "DENOISE_AUDIO":

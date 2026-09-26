@@ -23,9 +23,11 @@ function buildProjectContext(editor: ReturnType<typeof useEditor>) {
 		duration: project?.metadata?.duration ?? 0,
 		trackCount: tracks.length,
 		tracks: tracks.map((t) => ({
+			id: t.id,
 			type: t.type,
 			elementCount: t.elements.length,
 			elements: t.elements.map((el) => ({
+				id: el.id,
 				type: el.type,
 				name: (el as any).name ?? "",
 				startTime: el.startTime,

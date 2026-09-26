@@ -91,7 +91,7 @@ Available action types:
 - ADD_CHAPTER_MARKERS: { chapters: { title: string, start: number, end: number, summary?: string }[] }
 - ADD_SUBTITLE_TRACK: { preset: string, language: string }
 - ADD_IMAGE_OVERLAY: { prompt: string, x: number, y: number }
-- TRIM_CLIP: { start: number, end: number }
+- TRIM_CLIP: { clipId: string, start: number, end: number } (start/end are absolute timeline seconds; use the clipId from the current project state)
 - ADD_TRANSITION: { transitionType: string, duration: number }
 - SPLIT_CLIP: { time: number }
 - ADD_TEXT_OVERLAY: { text: string, x: number, y: number, style: string }
